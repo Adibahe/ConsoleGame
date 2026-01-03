@@ -4,16 +4,70 @@
 #include<algorithm>
 #include<chrono>
 #include<vector>
-#include "keys.h"
 #include <cmath>
 #include <fstream>
 #include <sstream>
 #include <clocale>
-// #include <windows.h>
+#include <windows.h>
 
 //Macros
 #define PI 22/7
 
+//////////////// KEY MACRO /////////////////////
+// MOUSE KEYS
+#define MOUSE_LEFT   VK_LBUTTON
+#define MOUSE_RIGHT  VK_RBUTTON
+#define MOUSE_MIDDLE VK_MBUTTON
+
+//FUNCTION KEYS
+#define KEY_F1  VK_F1
+#define KEY_F2  VK_F2
+#define KEY_F3  VK_F3
+#define KEY_F4  VK_F4
+#define KEY_F5  VK_F5
+#define KEY_F6  VK_F6
+#define KEY_F7  VK_F7
+#define KEY_F8  VK_F8
+#define KEY_F9  VK_F9
+#define KEY_F10 VK_F10
+#define KEY_F11 VK_F11
+#define KEY_F12 VK_F12
+
+//NAVIGATION KEYS
+#define KEY_INSERT   VK_INSERT
+#define KEY_DELETE   VK_DELETE
+#define KEY_HOME     VK_HOME
+#define KEY_END      VK_END
+#define KEY_PAGEUP   VK_PRIOR
+#define KEY_PAGEDOWN VK_NEXT
+
+//MODIFIER KEYS
+#define KEY_SHIFT    VK_SHIFT
+#define KEY_CTRL     VK_CONTROL
+#define KEY_ALT      VK_MENU
+
+#define KEY_LSHIFT   VK_LSHIFT   // 160
+#define KEY_RSHIFT   VK_RSHIFT   // 161
+#define KEY_LCTRL    VK_LCONTROL
+#define KEY_RCTRL    VK_RCONTROL
+#define KEY_LALT     VK_LMENU
+#define KEY_RALT     VK_RMENU
+
+// ARROW KEYS
+#define KEY_UP       VK_UP       // 38
+#define KEY_DOWN     VK_DOWN     // 40
+#define KEY_LEFT     VK_LEFT     // 37
+#define KEY_RIGHT    VK_RIGHT    // 39
+
+//CONTROL KEYS
+#define KEY_SPACE    VK_SPACE    // 32
+#define KEY_ENTER    VK_RETURN   // 13
+#define KEY_ESCAPE   VK_ESCAPE   // 27
+#define KEY_TAB      VK_TAB
+#define KEY_BACKSPACE VK_BACK
+//////////////// END //////////////////////////
+
+// FOREGROUND AND BACKGRUND COLOURS
 enum COLOUR
 {
 	FG_BLACK		= 0x0000,
@@ -50,6 +104,21 @@ enum COLOUR
 	BG_WHITE		= 0x00F0,
 };
 
+// for printing error msg on to classic consoles
+int 
+wdie(const char *msg)
+{
+    printf("ERROR: %lu\nError: %s\n",GetLastError(), msg);
+    return -1;
+}
+
+int
+die(const char *msg)
+{
+    printf("Error: %s\n",msg);
+    return -1;
+}
+
 //classes
 // vector class
 class vec2f{
@@ -74,7 +143,7 @@ class vec2f{
         }
 
         vec2f operator/(const float k) const{
-            if(!k){ throw std::runtime_error("vec2f: Division by zero");}
+            if(!k){ die("vec2f: Division by zero"); return vec2f(x,y);}
             return vec2f(x/k, y/k);
         }
 
@@ -84,7 +153,7 @@ class vec2f{
 
         static vec2f normalize(const vec2f &vec){
             float len = mag(vec);
-            if (!len) {throw std::runtime_error("vec2f: Cannot normalize zero-length vector");}
+            if (!len) {die("vec2f: Cannot normalize zero-length vector"); return vec;}
             return vec2f(vec.x/len, vec.y/len);
         }
 
@@ -183,9 +252,11 @@ class Engine{
         void
         writePrimaryScreenBuffer(const COORD coord = {0, 0}){
             int back = 1 - activeBuffer;
-            WriteConsoleOutputW(hconsolebuffer[back], Primaryscreen, {(SHORT)primaryScreenWidth, (SHORT)primaryScreenHeight} , coord, &windowSize);
+            if(!WriteConsoleOutputW(hconsolebuffer[back], Primaryscreen, {(SHORT)primaryScreenWidth, (SHORT)primaryScreenHeight} , coord, &windowSize)) 
+                wdie("In consoleGameFramework At writePrimaryScreenbuffer()\n Error while writting Primaryscreen through WriteConsoleOutputW");
             activeBuffer = back;
-            SetConsoleActiveScreenBuffer(hconsolebuffer[activeBuffer]);
+            if(!SetConsoleActiveScreenBuffer(hconsolebuffer[activeBuffer]))
+                wdie("In consoleGameFramework At writePrimaryScreenbuffer()\n Error at SetConsoleActiveScreenBuffer");
         }
 
         // creates border for console screen
@@ -213,13 +284,13 @@ class Engine{
             cfi.FontWeight = FW_NORMAL;
             wcscpy_s(cfi.FaceName, L"Consolas");
 
-            SetCurrentConsoleFontEx(hConsole, FALSE, &cfi);
+            if(!SetCurrentConsoleFontEx(hConsole, FALSE, &cfi)) wdie("In ConsoleGameFrame at SetConsoleFont");
         }
 
         bool CanCreateConsole(HANDLE hConsole, int32_t w, int32_t h, COORD& maxSize)
         {
             maxSize = GetLargestConsoleWindowSize(hConsole);
-
+            
             if (maxSize.X == 0 || maxSize.Y == 0)
                 return false;
 
@@ -420,9 +491,9 @@ class Engine{
         {
             std::wifstream file(path);
 
-            if (!file.is_open())
-                throw std::runtime_error("Failed to open sprite file");
-
+            if (!file.is_open()){
+                die("In ConsoleGameFramework at LoadSpriteFromFile(): Failed to open sprite file"); exit(EXIT_FAILURE);
+            }
             uint32_t W, H;
             file >> W >> H;
             file.ignore(std::numeric_limits<std::streamsize>::max(), L'\n');
@@ -481,14 +552,19 @@ class Engine{
             return sprite;
         }
 
+        bool create(const short fw = 8, const short fh = 16, const int32_t W = 140, const int32_t H = 40 ) {
+            if(!construct(fw, fh, W, H)){die("In ConsoleGameFrame at create(): construct(): construction of console and screen failed");
+            return false;}
+            return true;
+        }
         
         void
         run(const short fw = 8, const short fh = 16, const int32_t W = 140, const int32_t H = 40){
 
-            if(!create(fw, fh, W, H)){std::cerr << "creation failed!" << std::endl; return;}
+            if(!create(fw, fh, W, H)){die(" In ConsoleGameFramework at run(): create(); creation failed"); return;}
             std::chrono::time_point tp1 =  std::chrono::steady_clock::now();
 
-            if(!load()){std::cerr << "loading failed" << std::endl; return;}
+            if(!load()){die(" In ConsoleGameFramework at run(): load(); loading failed"); return;}
 
             //Game loop
             while(1){
@@ -508,12 +584,6 @@ class Engine{
             }
         }
 
-        bool create(const short fw = 8, const short fh = 16, const int32_t W = 140, const int32_t H = 40 ) {
-            if(!construct(fw, fh, W, H)){std::cerr<<"construction of console and screen failed" << std::endl;
-            return false;}
-            return true;
-        }
-
         virtual bool
         load(){return true;}
 
@@ -522,4 +592,5 @@ class Engine{
 
         virtual bool
         render(){ return true;}
+
 };
