@@ -12,7 +12,7 @@ Dummy: public Engine{
         uint32_t cells, active = 0;
         bool *board[2]; bool alive = 1, dead = 0;
         float density = 0.25f; // Percentage alive
-        float timeSetter = 0.0f, steptime = 1/(float)200; // 5 generations per second
+        float timeSetter = 0.0f, steptime = 1/(float)6.5; // 5 generations per second
 
         ~Dummy(){
             delete[] board[0];
@@ -102,7 +102,7 @@ int
 WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
     Dummy game;
-    game.refreshRate = 6;
+    game.refreshRate = 60;
     game.keepBorder = 1;
     game.run(8,16,140,40);
     return EXIT_SUCCESS;
