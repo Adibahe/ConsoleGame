@@ -9,6 +9,7 @@
 #include <sstream>
 #include <clocale>
 #include <windows.h>
+#include <ctime>
 
 //Macros
 #define PI 22/7
@@ -542,10 +543,15 @@ class Engine{
 
                 for (uint32_t x = 0; x < W; x++)
                 {
-                    unsigned int attr;
-                    ss >> std::hex >> attr;
-                    color = static_cast<short>(attr);
+                    unsigned int attr = 0x000F;   // default color
+
+                    if (ss >> std::hex >> attr) {
+                        color = static_cast<short>(attr);   
+                    } else {
+                        color = 0x000F;
+                    }
                     sprite.body[y * W + x].Attributes = color;
+
                 }
             }
 

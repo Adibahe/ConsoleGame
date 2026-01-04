@@ -48,8 +48,9 @@ Dummy: public Engine{
 
                     temp = board[active][y * (secScreenWidth/2) + x];
                     if( temp && (neighbourAlive < 2 || neighbourAlive > 3) ) temp = dead;
-                    else if(neighbourAlive == 3) temp = alive;
-                    else temp = dead;
+                    else {
+                        if(neighbourAlive == 3) temp = alive;
+                    }
 
                     board[inactive][y * (secScreenWidth/2) + x] = temp;
                 }
@@ -71,7 +72,6 @@ Dummy: public Engine{
             // // load initial state
             for(int i = 0; i < cells; i++) {
                 board[0][i] = (rand()/(float)RAND_MAX) < density; // every cell has a chance of begin alive which is equivalent to density
-                board[1][i] = (rand()/(float)RAND_MAX) < density; 
             }
 
             return true;
