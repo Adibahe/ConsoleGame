@@ -580,7 +580,7 @@ class Engine{
                 update(elapsedTime.count());
                 render();
 
-                Sleep(1/(float)elapsedTime.count());
+                Sleep(1000/(float)refreshRate);
             }
         }
 
