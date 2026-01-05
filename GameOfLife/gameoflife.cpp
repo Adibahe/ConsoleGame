@@ -9,9 +9,9 @@ GameOfLife: public Engine{
     public:
 
         Sprite tile;
-        
+        Sprite selecter;
         uint32_t cells, active = 0;
-        bool *board[2]; bool alive = 1, dead = 0;
+        bool *board[2]; bool alive = 1, dead = 0, selectionGoingOn = 1;
         float density = 0.30f; // Percentage alive
         float timeSetter = 0.0f, steptime = 1/(float)20; // 5 generations per second
         int boardW;
@@ -19,7 +19,7 @@ GameOfLife: public Engine{
         CHAR_INFO *infoScreen;
         std::vector<CHAR_INFO*> layers;
         std::vector<std::pair<COORD, int>> pos_size;
-        uint32_t generation = 0, population = 0;
+        uint32_t generation = 1, population = 0;
 
 
         ~GameOfLife(){
@@ -146,6 +146,7 @@ GameOfLife: public Engine{
                     if(board[active][index]) {DrawSprite(tile);}
                 }
             }
+            tile.point.x = 0.0f; tile.point.y = 0.0f;
             return true;
         }
 
@@ -195,12 +196,14 @@ GameOfLife: public Engine{
             srand(time(0)); // for generating varying random number each time this programm
 
             tile = LoadSpriteFromFile("C:/Users/DELL/Documents/repos/consoleGame/GameOfLife/tile.txt");
+            selecter = LoadSpriteFromFile("C:/Users/DELL/Documents/repos/consoleGame/GameOfLife/selecter.txt");
+            
 
             std::memset(board[0], dead, cells * sizeof(bool)); // writes every cells false or dead
             std::memset(board[1], dead, cells * sizeof(bool)); // writes every cells false or dead
 
             // load initial state
-            regularSeed();
+            // regularSeed();
             // R_pentomino(boardW/2,boardH/2);
             // acorn(boardW/2, boardH/2);
             // AddPulsar(30, 10);
@@ -211,12 +214,7 @@ GameOfLife: public Engine{
             return true;
         }
 
-        bool update(float elapsedt) override{
-            // displays current state
-            Drawboard();
-            std::wstring gen_no = L"Generation " + std::to_wstring(generation) + L" Population " + std::to_wstring(population);
-            DrawString({0,(float)(boardH - 1)}, gen_no);
-
+        void updatelife(float &elapsedt){
             if(timeSetter >= steptime){ //constrols the flow of generation per second
                 updateBoard();
                 active = (active + 1) % 2; // swaping between active and inactive boards
@@ -225,6 +223,60 @@ GameOfLife: public Engine{
             }
 
             timeSetter += elapsedt;
+
+        }
+
+        void updateSelecter(float &elapsedt){
+            DrawSprite(selecter);
+        }
+
+        bool update(float elapsedt) override{
+            // displays current state
+            static float moveTimer = 0.0f;
+            const float moveInterval = 0.10f; // 10 moves/sec
+            std::wstring gen_no = L"Generation " + std::to_wstring(generation) + L" Population " + std::to_wstring(population);
+            std::wstring info = L"tile x " + std::to_wstring(tile.point.x) + L" y " + std::to_wstring(tile.point.y) + L" selecter x " 
+            + std::to_wstring(selecter.point.x) + L" y " + std::to_wstring(selecter.point.y);
+            DrawString({0,(float) boardH - 2}, info);
+            DrawString({0,(float)(boardH - 1)}, gen_no);
+
+            if(selectionGoingOn) {
+                if(keys[KEY_ENTER].held) selectionGoingOn = 0;
+                // WASD buttons to move selector
+                if(keys['W'].held) selecter.point.y -= 10.0f * elapsedt;
+                if(keys['S'].held) selecter.point.y += 10.0f * elapsedt;
+                //move sideways
+                moveTimer += elapsedt;
+                if (moveTimer >= moveInterval) {
+                    if (keys['A'].held) selecter.point.x -= 2;
+                    if (keys['D'].held) selecter.point.x += 2;
+                    moveTimer = 0.0f;
+                }
+                
+                selecter.point.x = std::clamp(selecter.point.x, 0.0f, (float)secScreenWidth - 2);
+                selecter.point.y = std::clamp(selecter.point.y, 0.0f, (float)(boardH - 1));
+
+
+                //Selection of cell
+                if(keys[KEY_SPACE].pressed){
+                    int32_t x = (int32_t)(selecter.point.x / 2);
+                    int32_t y = (int32_t)selecter.point.y;
+
+                    if (x >= 0 && x < boardW && y >= 0 && y < boardH) {
+                        board[active][y * boardW + x] ^= 1;
+                    }
+
+                    tile.point.x = x; tile.point.y = y;
+                    DrawSprite(tile);
+                }
+
+                updateSelecter(elapsedt);
+            }
+            else {
+                updatelife(elapsedt);
+            }
+            Drawboard();
+
             return true;
         }
 
@@ -240,7 +292,7 @@ int init(){
     GameOfLife game;
     game.refreshRate = 60;
     game.keepBorder = 1;
-    game.steptime = 1/(float)10;
+    game.steptime = 1/(float)15;
     game.run(8,16,140,40);
     return 0;
 }
