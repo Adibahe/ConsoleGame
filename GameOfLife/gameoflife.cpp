@@ -13,6 +13,9 @@ Dummy: public Engine{
         bool *board[2]; bool alive = 1, dead = 0;
         float density = 0.25f; // Percentage alive
         float timeSetter = 0.0f, steptime = 1/(float)6.5; // 5 generations per second
+        int boardW;
+        int boardH;
+
 
         ~Dummy(){
             delete[] board[0];
@@ -20,11 +23,11 @@ Dummy: public Engine{
         }
 
         bool Drawboard(){
-            for(int y = 0; y < secScreenHeight; y++){
-                for(int x  = 0; x < secScreenWidth/2; x++){
+            for(int y = 0; y < boardH; y++){
+                for(int x  = 0; x < boardW; x++){
                     tile.point.x = x * 2; tile.point.y = y;
 
-                    int index = y * (secScreenWidth/2) + x;
+                    int index = y * (boardW) + x;
                     if(board[active][index]) {DrawSprite(tile);}
                 }
             }
@@ -37,29 +40,40 @@ Dummy: public Engine{
             bool temp;
             uint32_t inactive = (active + 1) % 2;
 
-            for(int y = 0; y < secScreenHeight; y++){
-                for(int x  = 0; x < secScreenWidth/2; x++){
+            for(int y = 0; y < boardH; y++){
+                for(int x  = 0; x < boardW; x++){
                     neighbourAlive = 0; // resetting for every cell
-                    for (int d = 0; d < 8; d++) {  // wrapping around the world
-                        int nx = (x + direction[d][0] + (secScreenWidth / 2)) % (secScreenWidth / 2);
-                        int ny = (y + direction[d][1] + secScreenHeight) % secScreenHeight;
-                        if(board[active][ny * (secScreenWidth/2) + nx]) neighbourAlive ++;
+                    for (int d = 0; d < 8; d++) {
+                        // wrapping around the world
+                        // int nx = (x + direction[d][0] + (boardW)) % (boardW);
+                        // int ny = (y + direction[d][1] + boardH) % boardH;
+
+                        // Not wrapping cells die outside the border
+                        int nx = x + direction[d][0];
+                        if(nx < 0 || nx >= (boardW)) continue;
+                        int ny = y + direction[d][1]; 
+                        if(ny < 0 || ny >= boardH) continue;
+
+                        if(board[active][ny * (boardW) + nx]) neighbourAlive ++;
                     }
 
-                    temp = board[active][y * (secScreenWidth/2) + x];
+                    temp = board[active][y * (boardW) + x];
                     if( temp && (neighbourAlive < 2 || neighbourAlive > 3) ) temp = dead;
                     else {
                         if(neighbourAlive == 3) temp = alive;
                     }
 
-                    board[inactive][y * (secScreenWidth/2) + x] = temp;
+                    board[inactive][y * (boardW) + x] = temp;
                 }
             }            
             return true;
         }
 
         bool load() override{
-            cells = (secScreenWidth/2) * secScreenHeight;
+            boardW = secScreenWidth/2;
+            boardH = secScreenHeight;
+
+            cells = (boardW) * boardH;
             board[0] = new bool[cells];
             board[1] = new bool[cells]; 
 
