@@ -16,6 +16,9 @@ GameOfLife: public Engine{
         int boardW;
         int boardH;
         CHAR_INFO *infoScreen;
+        std::vector<CHAR_INFO*> layers;
+        std::vector<std::pair<COORD, int>> pos_size;
+        uint32_t generation = 0, population = 0;
 
 
         ~GameOfLife(){
@@ -55,6 +58,12 @@ GameOfLife: public Engine{
             }
         }
 
+        void regularSeed(){
+            for(int i = 0; i < cells; i++) {
+                board[0][i] = (rand()/(float)RAND_MAX) < density; // every cell has a chance of begin alive which is equivalent to density
+            }
+        }
+
 
         bool Drawboard(){
             for(int y = 0; y < boardH; y++){
@@ -73,7 +82,7 @@ GameOfLife: public Engine{
             uint32_t neighbourAlive = 0;
             bool temp;
             uint32_t inactive = (active + 1) % 2;
-
+            population = 0;
             for(int y = 0; y < boardH; y++){
                 for(int x  = 0; x < boardW; x++){
                     neighbourAlive = 0; // resetting for every cell
@@ -96,7 +105,7 @@ GameOfLife: public Engine{
                     else {
                         if(neighbourAlive == 3) temp = alive;
                     }
-
+                    population += temp ? 1 : 0;
                     board[inactive][y * (boardW) + x] = temp;
                 }
             }            
@@ -109,7 +118,14 @@ GameOfLife: public Engine{
 
             cells = (boardW) * boardH;
             board[0] = new bool[cells];
-            board[1] = new bool[cells]; 
+            board[1] = new bool[cells];
+
+            infoScreen = new CHAR_INFO[10 * 2];
+            layers.push_back(infoScreen);
+            COORD infolocation; 
+            infolocation.X = 0; infolocation.Y = 37;
+            std::pair t = {infolocation, 10 * 2};
+            pos_size.push_back(t);
 
             srand(time(0)); // for generating varying random number each time this programm
 
@@ -117,11 +133,8 @@ GameOfLife: public Engine{
             std::memset(board[0], dead, cells * sizeof(bool)); // writes every cells false or dead
             std::memset(board[1], dead, cells * sizeof(bool)); // writes every cells false or dead
 
-            // // // load initial state
-            // for(int i = 0; i < cells; i++) {
-            //     board[0][i] = (rand()/(float)RAND_MAX) < density; // every cell has a chance of begin alive which is equivalent to density
-            // }
-            AddGosperGliderGun(10,10);
+            // load initial state
+            regularSeed();
 
             return true;
         }
@@ -129,11 +142,14 @@ GameOfLife: public Engine{
         bool update(float elapsedt) override{
             // displays current state
             Drawboard();
+            std::wstring gen_no = L"Generation " + std::to_wstring(generation) + L" Population " + std::to_wstring(population);
+            DrawString({0,39}, gen_no);
 
             if(timeSetter >= steptime){ //constrols the flow of generation per second
                 updateBoard();
                 active = (active + 1) % 2; // swaping between active and inactive boards
                 timeSetter -= steptime;
+                generation ++;
             }
 
             timeSetter += elapsedt;
@@ -141,6 +157,7 @@ GameOfLife: public Engine{
         }
 
         bool render(){
+            // Compose(layers, pos_size);
             Compose();
             writePrimaryScreenBuffer();
             return true;
@@ -153,6 +170,7 @@ WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, i
     GameOfLife game;
     game.refreshRate = 60;
     game.keepBorder = 1;
+    game.steptime = 1/(float)10;
     game.run(8,16,140,40);
     return EXIT_SUCCESS;
 }
