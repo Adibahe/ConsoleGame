@@ -222,7 +222,7 @@ class Engine{
         SMALL_RECT windowSize;
         HANDLE hOriginal;
         CONSOLE_SCREEN_BUFFER_INFO originalInfo;
-        DWORD written = 0;
+        DWORD written;
         uint32_t activeBuffer = 0;
 
 
@@ -459,11 +459,12 @@ class Engine{
 
 
         void 
-        Compose(const std::vector<CHAR_INFO*> layers = {}, const std::vector<std::pair<COORD, int>> pos_size = {}) { // adds secdonaryScreen data over PrimaryScreen with a offset of (1, 1)
-            
+        Compose(const std::vector<CHAR_INFO*> &layers = {}, const std::vector<std::pair<COORD, int>> &pos_size = {}) { // adds secdonaryScreen data over PrimaryScreen with a offset of (1, 1)
+            // pos_size[i].first is the location of sub screen on secondary screen
+            // pos_size[i].second is the total cells in sub screen
             int index = 0, layersSize = layers.size();
 
-            for(int i = 0; i < layersSize; i++){
+            for(int i = 0; i < layersSize; i++){ //adds other layers or screen data over secondary screen
                 index = pos_size[i].first.Y * secScreenWidth + pos_size[i].first.X;
                 for(int j = 0; j < pos_size[i].second; j++ ){
                     Secondaryscreen[j + index] = layers[i][j];

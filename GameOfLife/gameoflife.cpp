@@ -9,9 +9,10 @@ GameOfLife: public Engine{
     public:
 
         Sprite tile;
+        
         uint32_t cells, active = 0;
         bool *board[2]; bool alive = 1, dead = 0;
-        float density = 0.25f; // Percentage alive
+        float density = 0.30f; // Percentage alive
         float timeSetter = 0.0f, steptime = 1/(float)20; // 5 generations per second
         int boardW;
         int boardH;
@@ -26,13 +27,71 @@ GameOfLife: public Engine{
             delete[] board[1];
         }
 
+        // Supports in setting up seeds
+        inline void SetCell(int x, int y)
+        {
+            if (x < 0 || x >= boardW || y < 0 || y >= boardH) return;
+            board[active][y * boardW + x] = alive;
+        }
+
+//////////////////// SEEDS ///////////////////////////////////////////////////////
+        void regularSeed(){
+            for(int i = 0; i < cells; i++) {
+                board[0][i] = (rand()/(float)RAND_MAX) < density; // every cell has a chance of begin alive which is equivalent to density
+            }
+        }
+
+        void AddMiddleWeightSpaceship(int StartX, int StartY)
+        {
+            int p[][2] = {
+                {1,0},{2,0},{3,0},{4,0},{5,0},
+                {0,1},{5,1},
+                {5,2},
+                {0,3},{4,3}
+            };
+
+            for (auto &c : p)
+                SetCell(StartX + c[0], StartY + c[1]);
+        }
+
+        void AddPulsar(int StartX, int StartY)
+        {
+            int p[][2] = {
+                {2,0},{3,0},{4,0},{8,0},{9,0},{10,0},
+                {0,2},{5,2},{7,2},{12,2},
+                {0,3},{5,3},{7,3},{12,3},
+                {0,4},{5,4},{7,4},{12,4},
+                {2,5},{3,5},{4,5},{8,5},{9,5},{10,5},
+
+                {2,7},{3,7},{4,7},{8,7},{9,7},{10,7},
+                {0,8},{5,8},{7,8},{12,8},
+                {0,9},{5,9},{7,9},{12,9},
+                {0,10},{5,10},{7,10},{12,10},
+                {2,12},{3,12},{4,12},{8,12},{9,12},{10,12}
+            };
+
+            for (auto &c : p)
+                SetCell(StartX + c[0], StartY + c[1]);
+        }
+
+        void R_pentomino(int startX, int startY){
+            const int R_pentomino[][2] = {
+                {1,0},{2,0},
+                {0,1},{1,1},
+                {1,2}
+            };
+
+            const uint32_t structSize = sizeof(R_pentomino)/sizeof(R_pentomino[0]);
+            for (auto &c : R_pentomino)
+                SetCell(startX + c[0], startY + c[1]);
+
+        }
+
         void AddGosperGliderGun(int startX, int startY)
         {
-            const int boardW = secScreenWidth / 2;
-            const int boardH = secScreenHeight;
 
             // Relative positions of live cells in Gosper Glider Gun
-            static const int gun[][2] = {
+            const int gun[][2] = {
             {24,0},
             {22,1},{24,1},
             {12,2},{13,2},{20,2},{21,2},{34,2},{35,2},
@@ -46,24 +105,37 @@ GameOfLife: public Engine{
 
             const int gunSize = sizeof(gun) / sizeof(gun[0]);
 
-            for (int i = 0; i < gunSize; i++)
-            {
-                int x = startX + gun[i][0];
-                int y = startY + gun[i][1];
-
-                if (x < 0 || x >= boardW || y < 0 || y >= boardH)
-                    continue;
-
-                board[active][y * boardW + x] = alive;
-            }
+            for (auto &c : gun)
+                SetCell(startX + c[0], startY + c[1]);
         }
 
-        void regularSeed(){
-            for(int i = 0; i < cells; i++) {
-                board[0][i] = (rand()/(float)RAND_MAX) < density; // every cell has a chance of begin alive which is equivalent to density
-            }
+        void AddBreeder(int StartX, int StartY)
+        {
+            // Gun
+            AddGosperGliderGun(StartX, StartY);
+
+            // Reflector blocks
+            int blocks[][2] = {
+                {40,10},{41,10},{40,11},{41,11},
+                {40,20},{41,20},{40,21},{41,21}
+            };
+
+            for (auto &b : blocks)
+                SetCell(StartX + b[0], StartY + b[1]);
         }
 
+        void acorn(int startX, int startY){
+            const int acorn[][2] = {
+                {1,0},
+                {3,1},
+                {0,2},{1,2},{4,2},{5,2},{6,2}
+            };
+
+            for (auto &c : acorn)
+                SetCell(startX + c[0], startY + c[1]);
+        }
+
+/////////////////////////////// END //////////////////////////////////////////////
 
         bool Drawboard(){
             for(int y = 0; y < boardH; y++){
@@ -88,14 +160,14 @@ GameOfLife: public Engine{
                     neighbourAlive = 0; // resetting for every cell
                     for (int d = 0; d < 8; d++) {
                         // wrapping around the world
-                        // int nx = (x + direction[d][0] + (boardW)) % (boardW);
-                        // int ny = (y + direction[d][1] + boardH) % boardH;
+                        int nx = (x + direction[d][0] + (boardW)) % (boardW);
+                        int ny = (y + direction[d][1] + boardH) % boardH;
 
                         // Not wrapping cells die outside the border
-                        int nx = x + direction[d][0];
-                        if(nx < 0 || nx >= (boardW)) continue;
-                        int ny = y + direction[d][1]; 
-                        if(ny < 0 || ny >= boardH) continue;
+                        // int nx = x + direction[d][0];
+                        // if(nx < 0 || nx >= (boardW)) continue;
+                        // int ny = y + direction[d][1]; 
+                        // if(ny < 0 || ny >= boardH) continue;
 
                         if(board[active][ny * (boardW) + nx]) neighbourAlive ++;
                     }
@@ -120,22 +192,22 @@ GameOfLife: public Engine{
             board[0] = new bool[cells];
             board[1] = new bool[cells];
 
-            infoScreen = new CHAR_INFO[10 * 2];
-            layers.push_back(infoScreen);
-            COORD infolocation; 
-            infolocation.X = 0; infolocation.Y = 37;
-            std::pair t = {infolocation, 10 * 2};
-            pos_size.push_back(t);
-
             srand(time(0)); // for generating varying random number each time this programm
 
-            tile = LoadSpriteFromFile("GameOfLife/tile.txt");
+            tile = LoadSpriteFromFile("C:/Users/DELL/Documents/repos/consoleGame/GameOfLife/tile.txt");
+
             std::memset(board[0], dead, cells * sizeof(bool)); // writes every cells false or dead
             std::memset(board[1], dead, cells * sizeof(bool)); // writes every cells false or dead
 
             // load initial state
             regularSeed();
-
+            // R_pentomino(boardW/2,boardH/2);
+            // acorn(boardW/2, boardH/2);
+            // AddPulsar(30, 10);
+            // AddBreeder(10, 10);
+            // AddGosperGliderGun(40,10);
+            // AddLightShapeship(0,10);
+            // AddMiddleWeightSpaceship(0,1);
             return true;
         }
 
@@ -143,7 +215,7 @@ GameOfLife: public Engine{
             // displays current state
             Drawboard();
             std::wstring gen_no = L"Generation " + std::to_wstring(generation) + L" Population " + std::to_wstring(population);
-            DrawString({0,39}, gen_no);
+            DrawString({0,(float)(boardH - 1)}, gen_no);
 
             if(timeSetter >= steptime){ //constrols the flow of generation per second
                 updateBoard();
@@ -164,13 +236,18 @@ GameOfLife: public Engine{
         }
 };
 
-int
-WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{
+int init(){
     GameOfLife game;
     game.refreshRate = 60;
     game.keepBorder = 1;
     game.steptime = 1/(float)10;
     game.run(8,16,140,40);
+    return 0;
+}
+
+int
+WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
+{
+    init();
     return EXIT_SUCCESS;
 }
