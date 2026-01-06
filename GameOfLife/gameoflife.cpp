@@ -11,7 +11,7 @@ GameOfLife: public Engine{
         Sprite tile;
         Sprite selecter;
         uint32_t cells, active = 0;
-        bool *board[2]; bool alive = 1, dead = 0, selectionGoingOn = 1;
+        bool *board[2]; bool alive = 1, dead = 0, selectionGoingOn = 0, wrap = 0, anySeedChoosen = 0;
         float density = 0.30f; // Percentage alive
         float timeSetter = 0.0f, steptime = 1/(float)20; // 5 generations per second
         int boardW;
@@ -20,6 +20,17 @@ GameOfLife: public Engine{
         std::vector<CHAR_INFO*> layers;
         std::vector<std::pair<COORD, int>> pos_size;
         uint32_t generation = 1, population = 0;
+
+        // Pattern flags
+        bool seed_regular   = false;
+        bool seed_rpent     = false;
+        bool seed_acorn     = false;
+        bool seed_pulsar    = false;
+        bool seed_breeder   = false;
+        bool seed_gosper    = false;
+        bool seed_lwss      = false;
+        bool seed_mwss      = false;
+
 
 
         ~GameOfLife(){
@@ -137,6 +148,15 @@ GameOfLife: public Engine{
 
 /////////////////////////////// END //////////////////////////////////////////////
 
+        bool isSameBoard() { // This funciton identifies stagnation and prevents the update
+            for (int i = 0; i < boardW * boardH; i++) {
+                if (board[active][i] != board[(active + 1) % 2][i])
+                    return false;
+            }
+            return true;
+        }
+
+
         bool Drawboard(){
             for(int y = 0; y < boardH; y++){
                 for(int x  = 0; x < boardW; x++){
@@ -159,17 +179,20 @@ GameOfLife: public Engine{
             for(int y = 0; y < boardH; y++){
                 for(int x  = 0; x < boardW; x++){
                     neighbourAlive = 0; // resetting for every cell
+                    int nx, ny;
                     for (int d = 0; d < 8; d++) {
                         // wrapping around the world
-                        int nx = (x + direction[d][0] + (boardW)) % (boardW);
-                        int ny = (y + direction[d][1] + boardH) % boardH;
-
+                        if(wrap){
+                            nx = (x + direction[d][0] + (boardW)) % (boardW);
+                            ny = (y + direction[d][1] + boardH) % boardH;
+                        }
                         // Not wrapping cells die outside the border
-                        // int nx = x + direction[d][0];
-                        // if(nx < 0 || nx >= (boardW)) continue;
-                        // int ny = y + direction[d][1]; 
-                        // if(ny < 0 || ny >= boardH) continue;
-
+                        else{
+                            nx = x + direction[d][0];
+                            if(nx < 0 || nx >= (boardW)) continue;
+                            ny = y + direction[d][1]; 
+                            if(ny < 0 || ny >= boardH) continue;
+                        }
                         if(board[active][ny * (boardW) + nx]) neighbourAlive ++;
                     }
 
@@ -203,6 +226,15 @@ GameOfLife: public Engine{
             std::memset(board[1], dead, cells * sizeof(bool)); // writes every cells false or dead
 
             // load initial state
+
+            if (seed_regular || !anySeedChoosen) regularSeed();
+            if (seed_rpent) R_pentomino(boardW / 2, boardH / 2);
+            if (seed_acorn) acorn(boardW / 2, boardH / 2);
+            if (seed_pulsar) AddPulsar(30, 10);
+            if (seed_breeder) AddBreeder(10, 10);
+            if (seed_gosper) AddGosperGliderGun(40, 10);
+            if (seed_lwss) AddMiddleWeightSpaceship(0, 10);
+            if (seed_mwss) AddMiddleWeightSpaceship(0, 1);
             // regularSeed();
             // R_pentomino(boardW/2,boardH/2);
             // acorn(boardW/2, boardH/2);
@@ -219,28 +251,19 @@ GameOfLife: public Engine{
                 updateBoard();
                 active = (active + 1) % 2; // swaping between active and inactive boards
                 timeSetter -= steptime;
-                generation ++;
+
+                if(board[active] != board[(active + 1) % 2])
+                    generation ++;
             }
 
             timeSetter += elapsedt;
 
         }
 
+        // logic for selecter
         void updateSelecter(float &elapsedt){
-            DrawSprite(selecter);
-        }
-
-        bool update(float elapsedt) override{
-            // displays current state
-            static float moveTimer = 0.0f;
-            const float moveInterval = 0.10f; // 10 moves/sec
-            std::wstring gen_no = L"Generation " + std::to_wstring(generation) + L" Population " + std::to_wstring(population);
-            std::wstring info = L"tile x " + std::to_wstring(tile.point.x) + L" y " + std::to_wstring(tile.point.y) + L" selecter x " 
-            + std::to_wstring(selecter.point.x) + L" y " + std::to_wstring(selecter.point.y);
-            DrawString({0,(float) boardH - 2}, info);
-            DrawString({0,(float)(boardH - 1)}, gen_no);
-
-            if(selectionGoingOn) {
+                static float moveTimer = 0.0f;
+                const float moveInterval = 0.10f; // 10 moves/sec
                 if(keys[KEY_ENTER].held) selectionGoingOn = 0;
                 // WASD buttons to move selector
                 if(keys['W'].held) selecter.point.y -= 10.0f * elapsedt;
@@ -267,15 +290,29 @@ GameOfLife: public Engine{
                     }
 
                     tile.point.x = x; tile.point.y = y;
-                    DrawSprite(tile);
                 }
+            DrawSprite(selecter);
+        }
 
+        bool update(float elapsedt) override{
+            // displays current state
+            Drawboard();
+
+            if(selectionGoingOn) {
+                std::wstring info = L"tile x " + std::to_wstring(tile.point.x) + L" y " + std::to_wstring(tile.point.y) + L" selecter x " 
+                + std::to_wstring(selecter.point.x) + L" y " + std::to_wstring(selecter.point.y);
+                std::wstring controlinfo = L"Press Enter to start simulation, SPACE to select/de-select a cell";
+
+                DrawString({0,(float) boardH - 2}, info);
+                DrawString({0,(float) boardH - 1}, controlinfo); 
                 updateSelecter(elapsedt);
             }
             else {
-                updatelife(elapsedt);
+                std::wstring gen_no = L"Generation " + std::to_wstring(generation) + L" Population " + std::to_wstring(population);
+                DrawString({0,(float)(boardH - 1)}, gen_no);
+                if(!isSameBoard())
+                    updatelife(elapsedt);
             }
-            Drawboard();
 
             return true;
         }
@@ -291,15 +328,88 @@ GameOfLife: public Engine{
 int init(){
     GameOfLife game;
     game.refreshRate = 60;
-    game.keepBorder = 1;
+    game.keepBorder = 0;
     game.steptime = 1/(float)15;
-    game.run(8,16,140,40);
     return 0;
 }
 
-int
-WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
+int WINAPI WinMain(
+    HINSTANCE,
+    HINSTANCE,
+    LPSTR,
+    int
+)
 {
-    init();
+    uint32_t W = 140, H = 40;
+    int argc;
+    bool seedRequested = false;
+
+    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+
+    GameOfLife game;
+    game.refreshRate = 60;
+    game.keepBorder = 0;
+    game.steptime = 1/(float)15;
+    
+    for (int i = 1; i < argc; i++)
+    {
+        if (!wcscmp(argv[i], L"-fps")) game.refreshRate = _wtoi(argv[++i]);
+        else if(!wcscmp(argv[i], L"-w")){if(!(_wtoi(argv[++i]) % 2)) W = _wtoi(argv[i]);} 
+        else if(!wcscmp(argv[i], L"-h")) H = _wtoi(argv[++i]);
+        else if(!wcscmp(argv[i], L"-borders") || !wcscmp(argv[i], L"-b")) game.keepBorder = 1;
+        else if(!wcscmp(argv[i], L"-genRate") || !wcscmp(argv[i], L"-gr")) game.steptime = _wtof(argv[++i]);
+        else if(!wcscmp(argv[i], L"-wrap") || !wcscmp(argv[i], L"-w")) game.wrap = 1;
+        else if (!wcscmp(argv[i], L"-draw") || !wcscmp(argv[i], L"-d")) { if (!seedRequested) game.selectionGoingOn = 1; game.anySeedChoosen = 1;}
+        else if (!wcscmp(argv[i], L"-seed"))
+        {
+            if (i + 1 >= argc) continue;
+
+            seedRequested = true;
+            game.selectionGoingOn = 0;
+
+            ++i;
+            if      (!wcscmp(argv[i], L"regular"))  game.seed_regular = true;
+            else if (!wcscmp(argv[i], L"rpent"))    game.seed_rpent   = true;
+            else if (!wcscmp(argv[i], L"acorn"))    game.seed_acorn   = true;
+            else if (!wcscmp(argv[i], L"pulsar"))   game.seed_pulsar  = true;
+            else if (!wcscmp(argv[i], L"breeder"))  game.seed_breeder = true;
+            else if (!wcscmp(argv[i], L"gosper"))   game.seed_gosper  = true;
+            else if (!wcscmp(argv[i], L"lwss"))     game.seed_lwss    = true;
+            else if (!wcscmp(argv[i], L"mwss"))     game.seed_mwss    = true;
+            game.anySeedChoosen = 1;
+        }
+        else if(!wcscmp(argv[i], L"-help")){
+            wprintf(L"=== Game of Life - Help ===\n\n");
+            wprintf(L"Usage: GameOfLife.exe [options]\n\n");
+            wprintf(L"Options:\n");
+            wprintf(L"  -w <number>    Set the board width (must be even, default: 140)\n");
+            wprintf(L"  -h <number>    Set the board height (default: 40)\n");
+            wprintf(L"  -gr <number>   Set the simulation speed in steps/sec (default: 10)\n");
+            wprintf(L"  -fps <number>  Set the refresh rate\n");
+            wprintf(L"  -help,         Display this help section\n\n");
+            wprintf(L"  -wrap              Enable wrap-around edges (toroidal board)\n");
+            wprintf(L"  -borders, -b       Keep borders visible\n\n");
+            wprintf(L"Initial state / seed selection:\n");
+            wprintf(L"  -draw, -d          Enable interactive seed drawing mode\n");
+            wprintf(L"  -seed <type>       Choose a preset seed:\n");
+            wprintf(L"                     regular  - Regular pattern\n");
+            wprintf(L"                     rpent    - R-pentomino\n");
+            wprintf(L"                     acorn    - Acorn pattern\n");
+            wprintf(L"                     pulsar   - Pulsar oscillator\n");
+            wprintf(L"                     breeder  - Breeder pattern\n");
+            wprintf(L"                     gosper   - Gosper glider gun\n");
+            wprintf(L"                     lwss     - Lightweight spaceship\n");
+            wprintf(L"                     mwss     - Middleweight spaceship\n\n");
+            wprintf(L"Controls during simulation:\n");
+            wprintf(L"  W / A / S / D  Move the selector cursor\n");
+            wprintf(L"  SPACE          Toggle the cell under selector\n");
+            wprintf(L"  ENTER          Finish selection and start simulation\n\n");
+            wprintf(L"Example:\n");
+            wprintf(L"  GameOfLife.exe -w 120 -h 50 -s 15\n");
+            return EXIT_SUCCESS;
+        }
+    }
+    game.run(8,16,W,H);
+    LocalFree(argv);
     return EXIT_SUCCESS;
 }
